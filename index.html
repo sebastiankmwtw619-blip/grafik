@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111518">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Grafik">
+<meta name="description" content="Grafik zmian – godziny pracy i zarobek, działa offline.">
+<title>Grafik zmian</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+      </span>
+      <span class="brand-name">Grafik</span>
+      <button id="menuBtn" class="icon-btn" aria-label="Menu: eksport, import, instalacja">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+      </button>
+    </div>
+    <div class="caps side-caps">Osoby</div>
+    <div id="people" class="people"></div>
+  </aside>
+
+  <main class="main">
+    <header class="head">
+      <div class="who">
+        <h1 id="nameText"></h1>
+        <button id="personBtn" class="icon-btn" aria-label="Ustawienia osoby: nazwa, stawka, usuń">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>
+        </button>
+      </div>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Widok">
+          <button id="viewList" type="button">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1"/></svg>Lista</button>
+          <button id="viewCal" type="button">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Kalendarz</button>
+        </div>
+        <div class="month">
+          <button id="prevMonth" class="icon-btn" aria-label="Poprzedni miesiąc">‹</button>
+          <span id="monthText"></span>
+          <button id="nextMonth" class="icon-btn" aria-label="Następny miesiąc">›</button>
+        </div>
+        <button id="todayBtn" class="btn">Dziś</button>
+      </div>
+    </header>
+
+    <section class="stats" aria-label="Podsumowanie miesiąca">
+      <div class="tile"><span class="lbl">Godziny</span><span id="statHours" class="val accent"></span></div>
+      <div class="tile"><span class="lbl">Zmiany</span><span id="statCount" class="val"></span></div>
+      <div class="tile"><span class="lbl">Średnio</span><span id="statAvg" class="val"></span></div>
+      <button class="tile tile-btn" id="earnTile" type="button"><span id="statEarnLbl" class="lbl">Zarobek</span><span id="statEarn" class="val"></span></button>
+    </section>
+
+    <section class="content">
+      <div id="listView" class="card">
+        <div class="list-head caps"><span>Dzień</span><span>Godziny</span><span class="r">Czas</span></div>
+        <div id="listBody"></div>
+      </div>
+      <div id="calView" class="card" hidden>
+        <div class="dows caps"><span>Pon</span><span>Wt</span><span>Śr</span><span>Czw</span><span>Pt</span><span>Sob</span><span>Nd</span></div>
+        <div id="calGrid" class="cal-grid"></div>
+      </div>
+      <label id="showAllWrap" class="check" hidden><input type="checkbox" id="showAll"> Pokaż w kalendarzu wszystkie osoby</label>
+    </section>
+
+    <p id="status" class="status" role="status"></p>
+  </main>
+</div>
+
+<button id="fab" class="fab" aria-label="Dodaj zmianę">
+  <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+
+<div id="installHint" class="install" hidden>
+  <div>
+    <strong>Zainstaluj Grafik na iPhonie</strong>
+    <p>Stuknij <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-label="Udostępnij" role="img"><path d="M12 3v12M7 8l5-5 5 5M5 12v8h14v-8"/></svg> Udostępnij, a potem „Do ekranu początkowego”.</p>
+  </div>
+  <button id="installClose" class="icon-btn" aria-label="Zamknij podpowiedź">✕</button>
+</div>
+
+<!-- Zmiana -->
+<dialog id="shiftDlg" class="sheet" aria-labelledby="shiftTitle">
+  <form id="shiftForm" method="dialog">
+    <div class="sheet-head">
+      <h2 id="shiftTitle">Dodaj zmianę</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Zamknij">✕</button>
+    </div>
+    <p id="shiftInfo" class="muted"></p>
+    <label class="field"><span>Data</span><input type="date" id="fDate" required></label>
+    <div class="presets">
+      <button type="button" class="btn" data-preset="08:00|16:00">8–16</button>
+      <button type="button" class="btn" data-preset="12:00|20:00">12–20</button>
+      <button type="button" class="btn" data-preset="14:00|20:00">14–20</button>
+    </div>
+    <div class="row2">
+      <label class="field"><span>Od</span><input type="time" id="fStart" required step="300"></label>
+      <label class="field"><span>Do</span><input type="time" id="fEnd" required step="300"></label>
+    </div>
+    <p id="fLength" class="soft"></p>
+    <p id="fMsg" class="msg" role="alert"></p>
+    <div class="actions">
+      <button type="submit" id="fSave" class="btn primary">Dodaj zmianę</button>
+      <button type="button" id="fDelete" class="btn danger" hidden>Usuń</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Osoba -->
+<dialog id="personDlg" class="sheet" aria-labelledby="personTitle">
+  <form id="personForm" method="dialog">
+    <div class="sheet-head">
+      <h2 id="personTitle">Osoba</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Zamknij">✕</button>
+    </div>
+    <label class="field"><span>Nazwa</span><input type="text" id="pName" maxlength="40" autocomplete="off" required></label>
+    <label class="field"><span>Stawka za godzinę (zł)</span><input type="text" id="pRate" inputmode="decimal" autocomplete="off" placeholder="np. 32,50"></label>
+    <p id="pMsg" class="msg" role="alert"></p>
+    <div class="actions">
+      <button type="submit" class="btn primary">Zapisz</button>
+      <button type="button" id="pDelete" class="btn danger">Usuń osobę</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Menu -->
+<dialog id="menuDlg" class="sheet" aria-labelledby="menuTitle">
+  <div class="sheet-head">
+    <h2 id="menuTitle">Grafik</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Zamknij">✕</button>
+  </div>
+  <div class="menu-list">
+    <button type="button" id="exportBtn" class="btn wide">Eksportuj dane (grafik.json)</button>
+    <button type="button" id="importBtn" class="btn wide">Importuj dane z pliku…</button>
+  </div>
+  <p class="muted small">Plik <b>grafik.json</b> jest taki sam jak w programie Grafik na Windowsie – możesz przenosić dane w obie strony.
+    Dane są zapisane tylko na tym urządzeniu.</p>
+  <h3>Instalacja na iPhonie</h3>
+  <ol class="muted small">
+    <li>Otwórz tę stronę w <b>Safari</b>.</li>
+    <li>Stuknij <b>Udostępnij</b> (kwadrat ze strzałką).</li>
+    <li>Wybierz <b>Do ekranu początkowego</b> i <b>Dodaj</b>.</li>
+  </ol>
+  <p class="muted small" id="versionText"></p>
+</dialog>
+
+<input type="file" id="importFile" accept=".json,application/json" hidden>
+<script src="app.js"></script>
+</body>
+</html>
