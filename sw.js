@@ -1,5 +1,5 @@
 // Service worker: aplikacja działa bez internetu. Zmień numer CACHE przy każdej nowej wersji.
-const CACHE = 'grafik-v1.0.0';
+const CACHE = 'grafik-v1.1.0';
 const ASSETS = [
   './', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'icons/icon-maskable-512.png',

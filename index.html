@@ -54,6 +54,8 @@
           <button id="nextMonth" class="icon-btn" aria-label="Następny miesiąc">›</button>
         </div>
         <button id="todayBtn" class="btn">Dziś</button>
+        <button id="shareBtn" class="btn" aria-label="Wyślij grafik: WhatsApp, Messenger">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M5 12v8h14v-8"/></svg>Wyślij</button>
       </div>
     </header>
 
@@ -134,6 +136,29 @@
       <button type="button" id="pDelete" class="btn danger">Usuń osobę</button>
     </div>
   </form>
+</dialog>
+
+<!-- Wyślij grafik -->
+<dialog id="shareDlg" class="sheet" aria-labelledby="shareTitle">
+  <div class="sheet-head">
+    <h2 id="shareTitle">Wyślij grafik</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Zamknij">✕</button>
+  </div>
+  <p id="shareInfo" class="muted"></p>
+  <div id="shareWhoWrap" class="seg share-seg" role="group" aria-label="Czyj grafik">
+    <button id="shareOne" type="button"></button>
+    <button id="shareAll" type="button">Wszystkie osoby</button>
+  </div>
+  <label class="check"><input type="checkbox" id="shareEarn"> Pokaż zarobek</label>
+  <img id="sharePreview" class="share-preview" alt="Podgląd dokumentu z godzinami pracy">
+  <p id="shareMsg" class="msg" role="status"></p>
+  <div class="share-actions">
+    <button type="button" id="shareImg" class="btn primary">Udostępnij obrazek</button>
+    <button type="button" id="shareText" class="btn">Udostępnij tekst</button>
+    <button type="button" id="shareWa" class="btn">WhatsApp</button>
+    <button type="button" id="shareCopy" class="btn">Kopiuj tekst</button>
+  </div>
+  <p class="muted small">„Udostępnij” otwiera menu telefonu – wybierz w nim WhatsApp, Messenger lub inną aplikację.</p>
 </dialog>
 
 <!-- Menu -->

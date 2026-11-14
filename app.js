@@ -1,7 +1,7 @@
 'use strict';
 
 // Grafik zmian – wersja webowa (PWA). Dane w localStorage, w tym samym formacie co grafik.json z Windowsa.
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const KEY = 'grafik-data';
 
 // (kolor osoby, tło chipa, tekst chipa) – te same co w aplikacji na Windows
@@ -387,6 +387,211 @@ $('pDelete').addEventListener('click', () => {
   $('personDlg').close();
   render();
 });
+
+// --- Wyślij grafik (obrazek PNG + tekst do WhatsApp / Messenger) ---
+const share = { all: false, earn: false, file: null, url: null, text: '', seq: 0 };
+
+function zmianWord(n) {
+  const d = n % 10, dd = n % 100;
+  if (n === 1) return 'zmiana';
+  return d >= 2 && d <= 4 && (dd < 12 || dd > 14) ? 'zmiany' : 'zmian';
+}
+
+// Sekcje dokumentu: osoba + jej zmiany w pokazywanym miesiącu
+function shareSections() {
+  const people = share.all ? data.People.map((p, i) => [p, i]) : [[cur(), data.Selected]];
+  return people.map(([p, i]) => {
+    const list = p.Shifts.filter((s) => inMonth(shiftKey(s), month));
+    const total = list.reduce((a, s) => a + hoursOf(s), 0);
+    return { p, color: colorOf(i)[0], list, total };
+  }).filter((sec) => !share.all || sec.list.length);
+}
+
+function summaryLine(sec) {
+  let t = 'Razem: ' + fmtH(sec.total) + ' · ' + sec.list.length + ' ' + zmianWord(sec.list.length);
+  if (share.earn && sec.p.Rate > 0) t += ' · ' + money(sec.total * sec.p.Rate);
+  return t;
+}
+
+function buildShareText() {
+  const secs = shareSections();
+  const lines = ['📅 Grafik pracy – ' + monthTitle(month)];
+  if (!secs.length) lines.push('', 'Brak zmian w tym miesiącu.');
+  secs.forEach((sec) => {
+    lines.push('', '👤 ' + sec.p.Name);
+    if (!sec.list.length) lines.push('Brak zmian w tym miesiącu.');
+    sec.list.forEach((s) => lines.push(shortDay(shiftKey(s)) + '  ' + s.Start + '–' + s.End + '  (' + fmtH(hoursOf(s)) + ')'));
+    if (sec.list.length) lines.push(summaryLine(sec));
+  });
+  if (secs.length > 1) lines.push('', 'Łącznie: ' + fmtH(secs.reduce((a, x) => a + x.total, 0)));
+  return lines.join('\n');
+}
+
+// Rysuje dokument; z ctx = null tylko liczy wysokość
+function paintShare(ctx, W) {
+  const F = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
+  const P = 64, INK = '#18222B', MUTED = '#5D6B76', LINE = '#E3E8EC', ZEBRA = '#F5F7F8';
+  const colTime = P + 330, colEnd = W - P;
+  const secs = shareSections();
+  let y = 0;
+  const text = (t, x, yy, font, color, align = 'left', maxW) => {
+    if (!ctx) return;
+    ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'alphabetic';
+    if (maxW && ctx.measureText(t).width > maxW) {
+      while (t.length > 1 && ctx.measureText(t + '…').width > maxW) t = t.slice(0, -1);
+      t += '…';
+    }
+    ctx.fillText(t, x, yy);
+  };
+  const rect = (x, yy, w, h, color) => { if (ctx) { ctx.fillStyle = color; ctx.fillRect(x, yy, w, h); } };
+
+  rect(0, 0, W, 14, secs.length === 1 ? secs[0].color : '#0D6B63');
+  y = 14 + P + 46;
+  text('Grafik pracy', P, y, '700 56px ' + F, INK);
+  y += 52;
+  text(monthTitle(month), P, y, '400 34px ' + F, MUTED);
+  y += 40;
+
+  if (!secs.length) {
+    y += 70;
+    text('Brak zmian w tym miesiącu.', P, y, '400 32px ' + F, MUTED);
+    y += 30;
+  }
+
+  secs.forEach((sec) => {
+    y += 44;
+    rect(P, y - 4, W - 2 * P, 2, LINE);
+    y += 62;
+    if (ctx) { ctx.fillStyle = sec.color; ctx.beginPath(); ctx.arc(P + 14, y - 12, 14, 0, Math.PI * 2); ctx.fill(); }
+    text(sec.p.Name, P + 44, y, '700 38px ' + F, INK, 'left', W - 2 * P - 260);
+    text(fmtH(sec.total), colEnd, y, '700 38px ' + F, INK, 'right');
+    y += 30;
+    if (!sec.list.length) {
+      y += 50;
+      text('Brak zmian w tym miesiącu.', P, y, '400 30px ' + F, MUTED);
+      return;
+    }
+    y += 40;
+    text('DZIEŃ', P + 20, y, '600 22px ' + F, MUTED);
+    text('GODZINY', colTime, y, '600 22px ' + F, MUTED);
+    text('CZAS', colEnd - 20, y, '600 22px ' + F, MUTED, 'right');
+    y += 16;
+    sec.list.forEach((s, i) => {
+      const k = shiftKey(s);
+      if (i % 2 === 0) rect(P, y, W - 2 * P, 64, ZEBRA);
+      const base = y + 43;
+      const d = dateOf(k);
+      text(DOW[d.getDay()], P + 20, base, '600 31px ' + F, INK);
+      text(pad(d.getDate()) + '.' + pad(d.getMonth() + 1), P + 110, base, '400 31px ' + F, INK);
+      text(s.Start + ' – ' + s.End, colTime, base, '400 31px ' + F, INK);
+      text(fmtH(hoursOf(s)), colEnd - 20, base, '600 31px ' + F, INK, 'right');
+      y += 64;
+    });
+    y += 48;
+    text(summaryLine(sec), P + 20, y, '600 28px ' + F, MUTED);
+  });
+
+  if (secs.length > 1) {
+    y += 40;
+    rect(P, y, W - 2 * P, 2, LINE);
+    y += 60;
+    text('Łącznie', P, y, '700 36px ' + F, INK);
+    text(fmtH(secs.reduce((a, x) => a + x.total, 0)), colEnd, y, '700 36px ' + F, INK, 'right');
+  }
+  y += 70;
+  const now = new Date();
+  text('Grafik · ' + pad(now.getDate()) + '.' + pad(now.getMonth() + 1) + '.' + now.getFullYear(), P, y, '400 22px ' + F, '#8E9AA3');
+  return y + P;
+}
+
+function shareFileName() {
+  const who = share.all ? 'wszyscy' : cur().Name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ł/g, 'l').replace(/Ł/g, 'L').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'osoba';
+  return 'grafik-' + month.slice(0, 7) + '-' + who + '.png';
+}
+
+// Plik jest gotowy z wyprzedzeniem: iPhone pozwala otworzyć menu Udostępnij tylko od razu po stuknięciu.
+function prepareShare() {
+  const seq = ++share.seq;
+  share.text = buildShareText();
+  share.file = null;
+  $('shareImg').disabled = true;
+  const W = 1080;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = Math.ceil(paintShare(null, W));
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, c.width, c.height);
+  paintShare(ctx, W);
+  c.toBlob((blob) => {
+    if (seq !== share.seq || !blob) return;
+    share.file = new File([blob], shareFileName(), { type: 'image/png' });
+    if (share.url) URL.revokeObjectURL(share.url);
+    share.url = URL.createObjectURL(blob);
+    $('sharePreview').src = share.url;
+    $('shareImg').disabled = false;
+  }, 'image/png');
+}
+
+function renderShareDlg() {
+  const many = data.People.length > 1;
+  $('shareWhoWrap').hidden = !many;
+  if (!many) share.all = false;
+  $('shareOne').textContent = cur().Name;
+  $('shareOne').setAttribute('aria-pressed', String(!share.all));
+  $('shareAll').setAttribute('aria-pressed', String(share.all));
+  const anyRate = (share.all ? data.People : [cur()]).some((p) => p.Rate > 0);
+  $('shareEarn').parentElement.hidden = !anyRate;
+  $('shareEarn').checked = share.earn;
+  $('shareInfo').textContent = 'Godziny pracy za ' + monthTitle(month).toLowerCase() + '. Inny miesiąc wybierzesz strzałkami w nagłówku.';
+  const canFiles = !!(navigator.canShare && navigator.canShare({ files: [new File([''], 'a.png', { type: 'image/png' })] }));
+  $('shareImg').textContent = canFiles ? 'Udostępnij obrazek' : 'Pobierz obrazek';
+  $('shareText').hidden = !navigator.share;
+  $('shareMsg').textContent = '';
+  prepareShare();
+}
+
+function shareNote(t) { $('shareMsg').textContent = t; }
+
+$('shareBtn').onclick = () => { renderShareDlg(); $('shareDlg').showModal(); };
+$('shareOne').onclick = () => { share.all = false; renderShareDlg(); };
+$('shareAll').onclick = () => { share.all = true; renderShareDlg(); };
+$('shareEarn').onchange = (e) => { share.earn = e.target.checked; renderShareDlg(); };
+
+$('shareImg').onclick = () => {
+  const f = share.file;
+  if (!f) return;
+  if (navigator.canShare && navigator.canShare({ files: [f] })) {
+    navigator.share({ files: [f], title: 'Grafik pracy – ' + monthTitle(month) }).catch((e) => {
+      if (e.name !== 'AbortError') shareNote('Nie udało się udostępnić: ' + e.message);
+    });
+    return;
+  }
+  const a = el('a', { href: share.url, download: f.name });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  shareNote('Zapisano obrazek ' + f.name + ' – dołącz go w WhatsAppie lub Messengerze.');
+};
+
+$('shareText').onclick = () => {
+  navigator.share({ text: share.text }).catch((e) => {
+    if (e.name !== 'AbortError') shareNote('Nie udało się udostępnić: ' + e.message);
+  });
+};
+
+$('shareWa').onclick = () => {
+  window.open('https://wa.me/?text=' + encodeURIComponent(share.text), '_blank');
+};
+
+$('shareCopy').onclick = async () => {
+  try {
+    await navigator.clipboard.writeText(share.text);
+    shareNote('Skopiowano – wklej w Messengerze lub WhatsAppie.');
+  } catch (e) {
+    shareNote('Nie udało się skopiować tekstu.');
+  }
+};
 
 // --- Menu: eksport / import ---
 $('menuBtn').onclick = () => { $('versionText').textContent = 'Wersja ' + VERSION; $('menuDlg').showModal(); };
